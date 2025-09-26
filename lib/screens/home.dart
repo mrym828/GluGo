@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../utils/theme.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'log_reading_page.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,6 +12,55 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int _currentNavIndex = 0; 
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppTheme.primaryBlue,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  void _navigateToPage(int index) {
+    setState(() => _currentNavIndex = index);
+    HapticFeedback.lightImpact();
+    
+    switch (index) {
+      case 0:
+        // Already on Home
+        break;
+      case 1:
+        Navigator.pushReplacementNamed(context, '/glucose');
+        break;
+      case 2:
+        _showSnackBar('Scan feature coming soon!');
+        break;
+      case 3:
+        _showSnackBar('Insights feature coming soon!');
+        break;
+      case 4:
+        _showSnackBar('Profile feature coming soon!');
+        break;
+    }
+  }
+
+  void _navigateToLogReading() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LogReadingPage(),
+      ),
+    );
+    
+    if (result == true) {
+      _showSnackBar('Reading logged successfully!');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -39,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   PreferredSizeWidget _buildProfessionalAppBar() {
     return AppBar(
-      backgroundColor: AppTheme.primaryColor,
+      backgroundColor: AppTheme.primaryBlue,
       elevation: 0,
       
       leading: Container(
@@ -221,7 +272,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(
                   fontSize: 56,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
+                  color: Color.fromARGB(255, 30, 168, 57),
                   letterSpacing: -2,
                 ),
               ),
@@ -268,11 +319,11 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: _navigateToLogReading,
                   icon: const Icon(Icons.add_rounded, size: 18),
                   label: const Text('Log Reading'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
+                    backgroundColor: AppTheme.primaryBlue,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -289,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: () => _showSnackBar('Log Meal'),
                   icon: const Icon(Icons.restaurant_rounded, size: 18),
                   label: const Text('Log Meal'),
                   style: OutlinedButton.styleFrom(
@@ -460,6 +511,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: 'Scan Sensor',
                 subtitle: 'Get latest reading',
                 color: const Color(0xFF8B5CF6),
+                onTap: () => _showSnackBar('Scan Sensor'),
               ),
             ),
             const SizedBox(width: 12),
@@ -469,6 +521,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: 'Food Scanner',
                 subtitle: 'Scan barcode',
                 color: const Color(0xFF06B6D4),
+                onTap: () => _showSnackBar('Food Scanner'),
               ),
             ),
           ],
@@ -482,54 +535,57 @@ class _HomeScreenState extends State<HomeScreen> {
     required String title,
     required String subtitle,
     required Color color,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 24,
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1E293B),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1E293B),
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -551,7 +607,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: () => _navigateToPage(1), // Navigate to Glucose page
               child: const Text(
                 'View all',
                 style: TextStyle(
@@ -872,11 +928,11 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(Icons.home_rounded, 'Home', true),
-              _buildNavItem(Icons.show_chart_rounded, 'Glucose', false),
-              _buildNavItem(Icons.qr_code_scanner_rounded, 'Scan', false),
-              _buildNavItem(Icons.analytics_rounded, 'Insights', false),
-              _buildNavItem(Icons.person_rounded, 'Profile', false),
+              _buildNavItem(Icons.home_rounded, 'Home', 0),
+              _buildNavItem(Icons.show_chart_rounded, 'Glucose', 1),
+              _buildNavItem(Icons.qr_code_scanner_rounded, 'Scan', 2),
+              _buildNavItem(Icons.analytics_rounded, 'Insights', 3),
+              _buildNavItem(Icons.person_rounded, 'Profile', 4),
             ],
           ),
         ),
@@ -884,40 +940,44 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: isActive
-                ? BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  )
-                : null,
-            child: Icon(
-              icon,
-              size: 24,
-              color: isActive
-                  ? AppTheme.primaryColor
-                  : const Color(0xFF94A3B8),
+  Widget _buildNavItem(IconData icon, String label, int index) {
+    final isActive = _currentNavIndex == index;
+    return GestureDetector(
+      onTap: () => _navigateToPage(index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: isActive
+                  ? BoxDecoration(
+                      color: AppTheme.primaryBlue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    )
+                  : null,
+              child: Icon(
+                icon,
+                size: 24,
+                color: isActive
+                    ? AppTheme.primaryBlue
+                    : const Color(0xFF94A3B8),
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: isActive
-                  ? AppTheme.primaryColor
-                  : const Color(0xFF94A3B8),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isActive
+                    ? AppTheme.primaryBlue
+                    : const Color(0xFF94A3B8),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

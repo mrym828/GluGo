@@ -201,7 +201,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             colors: [
               currentPageData.gradientColors[0],
               currentPageData.gradientColors[1],
-              AppTheme.primaryColor,
+              AppTheme.primaryBlue,
             ],
             stops: const [0.0, 0.5, 1.0],
           ),

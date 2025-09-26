@@ -141,7 +141,7 @@ class _ProfileSetScreenState extends State<ProfileSetScreen> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AppTheme.primaryColor,
+              AppTheme.primaryBlue,
               const Color(0xFF8FB8FE),
             ],
             begin: Alignment.topLeft,

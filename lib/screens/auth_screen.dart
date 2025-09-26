@@ -58,7 +58,7 @@ class _AuthScreenState extends State<AuthScreen> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AppTheme.primaryColor,
+              AppTheme.primaryBlue,
               const Color(0xFF8FB8FE),
             ],
             begin: Alignment.topLeft,
