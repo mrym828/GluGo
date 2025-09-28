@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../utils/theme.dart';
+import '../widgets/shared_components.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'log_reading_page.dart';
 
@@ -11,353 +12,226 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  int _currentNavIndex = 0; 
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppTheme.primaryBlue,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _initializeAnimations();
+    _animationController.forward();
   }
 
-  void _navigateToPage(int index) {
-    setState(() => _currentNavIndex = index);
-    HapticFeedback.lightImpact();
+  void _initializeAnimations() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
     
-    switch (index) {
-      case 0:
-        // Already on Home
-        break;
-      case 1:
-        Navigator.pushReplacementNamed(context, '/glucose');
-        break;
-      case 2:
-        _showSnackBar('Scan feature coming soon!');
-        break;
-      case 3:
-        _showSnackBar('Insights feature coming soon!');
-        break;
-      case 4:
-        _showSnackBar('Profile feature coming soon!');
-        break;
-    }
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    ));
+    
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _showSnackBar(String message, {bool isSuccess = true}) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isSuccess ? Icons.check_circle_outline : Icons.error_outline,
+              color: Colors.white,
+              size: 18,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: AppTheme.bodyMedium.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: isSuccess ? AppTheme.successGreen : AppTheme.errorRed,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: AppTheme.radiusM),
+        margin: const EdgeInsets.all(AppTheme.spacingL),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   void _navigateToLogReading() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const LogReadingPage(),
-      ),
-    );
-    
-    if (result == true) {
-      _showSnackBar('Reading logged successfully!');
+    HapticFeedback.lightImpact();
+    try {
+      final result = await Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => const LogReadingPage(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return SlideTransition(
+              position: animation.drive(
+                Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                    .chain(CurveTween(curve: Curves.easeInOut)),
+              ),
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
+      
+      if (result == true) {
+        _showSnackBar('Reading logged successfully!');
+      }
+    } catch (e) {
+      _showSnackBar('Failed to navigate', isSuccess: false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: _buildProfessionalAppBar(),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildWelcomeHeader(),
-            const SizedBox(height: 32),
-            _buildCurrentGlucoseCard(),
-            const SizedBox(height: 28),
-            _buildQuickActionsGrid(),
-            const SizedBox(height: 28),
-            _buildRecentActivitySection(),
-            const SizedBox(height: 28),
-            _buildInsightsSection(),
-            const SizedBox(height: 100),
-          ],
+      backgroundColor: AppTheme.backgroundLight,
+      appBar: _buildAppBar(),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppTheme.spacingL),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _WelcomeSection(),
+                const SizedBox(height: AppTheme.spacingXL),
+                _CurrentGlucoseSection(onLogReading: _navigateToLogReading),
+                const SizedBox(height: AppTheme.spacingXL),
+                _QuickStatsSection(),
+                const SizedBox(height: AppTheme.spacingXL),
+                _QuickActionsSection(onShowSnackBar: _showSnackBar),
+                const SizedBox(height: AppTheme.spacingXL),
+                _RecentActivitySection(onShowSnackBar: _showSnackBar),
+                const SizedBox(height: AppTheme.spacingXXL),
+              ],
+            ),
+          ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  PreferredSizeWidget _buildProfessionalAppBar() {
-    return AppBar(
-      backgroundColor: AppTheme.primaryBlue,
-      elevation: 0,
-      
-      leading: Container(
-        margin: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Image.asset(
-          'assets/images/logo.png',
-          width: 50,
-          height: 50,
-        ),
-      ),
-      title: const Text(
-        'GluGo',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: 24,
-          letterSpacing: -0.5,
-        ),
-      ),
-      actions: [
-        Container(
-          margin: const EdgeInsets.only(right: 20, top: 8, bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF22C55E),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Connected',
-                style: TextStyle(
-                  color: Color(0xFF475569),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+  PreferredSizeWidget _buildAppBar() {
+    return const SharedAppBar(
+      title: 'GluGo',
+      showBackButton: false,
+      showConnection: true,
     );
   }
+}
 
-  Widget _buildWelcomeHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Good morning, Maryam',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Heres your glucose summary for today',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ],
-    );
-  }
+// Welcome Section Widget
+class _WelcomeSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final hour = now.hour;
+    String greeting = 'Good morning';
+    if (hour >= 12 && hour < 17) {
+      greeting = 'Good afternoon';
+    } else if (hour >= 17) {
+      greeting = 'Good evening';
+    }
 
-  Widget _buildCurrentGlucoseCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFFFFF),
-            Color(0xFFFAFBFF),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 40,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return BaseCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Current Glucose',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E293B),
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF22C55E),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Updated 2 minutes ago',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.all(AppTheme.spacingS),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFF3B82F6).withOpacity(0.2),
-                  ),
+                  color: AppTheme.primaryBlue.withOpacity(0.1),
+                  borderRadius: AppTheme.radiusS,
                 ),
-                child: const Text(
-                  'Target 80-130',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF3B82F6),
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Icon(
+                  Icons.waving_hand_rounded,
+                  color: AppTheme.primaryBlue,
+                  size: 20,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                '112',
-                style: TextStyle(
-                  fontSize: 56,
-                  fontWeight: FontWeight.w800,
-                  color: Color.fromARGB(255, 30, 168, 57),
-                  letterSpacing: -2,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+              const SizedBox(width: AppTheme.spacingM),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'mg/dL',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
+                      '$greeting, Maryam',
+                      style: AppTheme.titleLarge.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF22C55E),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'In Range',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Here\'s your glucose summary for today',
+                      style: AppTheme.bodyMedium,
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          _buildGlucoseChart(),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppTheme.spacingS),
           Row(
             children: [
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _navigateToLogReading,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Log Reading'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryBlue,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                child: MetricCard(
+                  title: 'Readings',
+                  value: '12',
+                  accentColor: AppTheme.primaryBlue,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppTheme.spacingXS),
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _showSnackBar('Log Meal'),
-                  icon: const Icon(Icons.restaurant_rounded, size: 18),
-                  label: const Text('Log Meal'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF3B82F6),
-                    backgroundColor: const Color(0xFF3B82F6).withOpacity(0.05),
-                    side: BorderSide(
-                      color: const Color(0xFF3B82F6).withOpacity(0.2),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                child: MetricCard(
+                  title: 'In Range',
+                  value: '78',
+                  unit: '%',
+                  accentColor: AppTheme.successGreen,
+                ),
+              ),
+              const SizedBox(width: AppTheme.spacingXS),
+              Expanded(
+                child: MetricCard(
+                  title: 'Average',
+                  value: '124',
+                  unit: 'mg',
+                  accentColor: AppTheme.textPrimary,
                 ),
               ),
             ],
@@ -366,15 +240,149 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
 
-  Widget _buildGlucoseChart() {
+class _CurrentGlucoseSection extends StatelessWidget {
+  final VoidCallback onLogReading;
+
+  const _CurrentGlucoseSection({required this.onLogReading});
+
+  @override
+  Widget build(BuildContext context) {
+    return BaseCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.spacingS),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryBlue.withOpacity(0.1),
+                      borderRadius: AppTheme.radiusS,
+                    ),
+                    child: Icon(
+                      Icons.bloodtype_rounded,
+                      color: AppTheme.primaryBlue,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.spacingM),
+                  Text(
+                    'Current Glucose',
+                    style: AppTheme.titleMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              StatusBadge(
+                label: 'Target 80-130',
+                color: AppTheme.textSecondary,
+                isOutlined: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacingL),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '112',
+                style: AppTheme.displayMedium.copyWith(
+                  color: AppTheme.successGreen,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 48,
+                ),
+              ),
+              const SizedBox(width: AppTheme.spacingS),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'mg/dL',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    StatusBadge(
+                      label: 'In Range',
+                      color: AppTheme.successGreen,
+                      icon: Icons.check_circle_rounded,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacingM),
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 4,
+                decoration: const BoxDecoration(
+                  color: AppTheme.successGreen,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Updated 2 minutes ago',
+                style: AppTheme.bodySmall.copyWith(
+                  color: AppTheme.textTertiary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacingL),
+          _GlucoseChart(),
+          const SizedBox(height: AppTheme.spacingL),
+          Row(
+            children: [
+              Expanded(
+                child: ActionButton(
+                  label: 'Log Reading',
+                  icon: Icons.add_circle_rounded,
+                  onPressed: onLogReading,
+                ),
+              ),
+              const SizedBox(width: AppTheme.spacingM),
+              Expanded(
+                child: ActionButton(
+                  label: 'Log Meal',
+                  icon: Icons.restaurant_rounded,
+                  onPressed: () {},
+                  isPrimary: false,
+                  customColor: AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Glucose Chart Widget
+class _GlucoseChart extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      height: 200,
-      padding: const EdgeInsets.all(16),
+      height: 180,
+      padding: const EdgeInsets.all(AppTheme.spacingL),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        color: AppTheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: AppTheme.radiusM,
+        border: Border.all(color: AppTheme.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,41 +390,39 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 '24-Hour Trend',
-                style: TextStyle(
-                  color: Color(0xFF475569),
-                  fontSize: 14,
+                style: AppTheme.labelLarge.copyWith(
+                  color: AppTheme.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF22C55E).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  '78% in range',
-                  style: TextStyle(
-                    color: Color(0xFF22C55E),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              StatusBadge(
+                label: '78% in range',
+                color: AppTheme.successGreen,
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppTheme.spacingM),
           Expanded(
             child: LineChart(
               LineChartData(
-                gridData: const FlGridData(show: false),
+                gridData: FlGridData(
+                  show: true,
+                  horizontalInterval: 50,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: AppTheme.borderLight.withOpacity(0.5),
+                      strokeWidth: 0.5,
+                    );
+                  },
+                  drawVerticalLine: false,
+                ),
                 titlesData: FlTitlesData(
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 24,
+                      reservedSize: 20,
                       interval: 6,
                       getTitlesWidget: (value, meta) {
                         final titles = ['00', '06', '12', '18', '24'];
@@ -424,10 +430,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         if (index >= 0 && index < titles.length) {
                           return Text(
                             titles[index],
-                            style: const TextStyle(
-                              color: Color(0xFF94A3B8),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
+                            style: AppTheme.bodySmall.copyWith(
+                              color: AppTheme.textTertiary,
                             ),
                           );
                         }
@@ -453,18 +457,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 lineBarsData: [
                   LineChartBarData(
                     isCurved: true,
-                    color: const Color(0xFF3B82F6),
-                    barWidth: 3,
+                    curveSmoothness: 0.3,
+                    color: AppTheme.primaryBlue,
+                    barWidth: 2,
                     isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) {
+                        return FlDotCirclePainter(
+                          radius: 3,
+                          color: AppTheme.primaryBlue,
+                          strokeWidth: 1,
+                          strokeColor: AppTheme.surface,
+                        );
+                      },
+                    ),
                     belowBarData: BarAreaData(
                       show: true,
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          const Color(0xFF3B82F6).withOpacity(0.15),
-                          const Color(0xFF3B82F6).withOpacity(0.02),
+                          AppTheme.primaryBlue.withOpacity(0.1),
+                          AppTheme.primaryBlue.withOpacity(0.02),
                         ],
                       ),
                     ),
@@ -488,40 +503,40 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
 
-  Widget _buildQuickActionsGrid() {
+// Quick Stats Section Widget
+class _QuickStatsSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Quick Actions',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1E293B),
-            letterSpacing: -0.3,
-          ),
+        SectionHeader(
+          title: 'Today\'s Summary',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppTheme.spacingS),
         Row(
           children: [
             Expanded(
-              child: _buildActionCard(
-                icon: Icons.document_scanner_outlined,
-                title: 'Scan Sensor',
-                subtitle: 'Get latest reading',
-                color: const Color(0xFF8B5CF6),
-                onTap: () => _showSnackBar('Scan Sensor'),
+              child: MetricCard(
+                title: 'Time in Range',
+                value: '78',
+                unit: '%',
+                subtitle: 'Goal: >70%',
+                icon: Icons.timeline_rounded,
+                accentColor: AppTheme.successGreen,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppTheme.spacingM),
             Expanded(
-              child: _buildActionCard(
-                icon: Icons.qr_code_scanner_rounded,
-                title: 'Food Scanner',
-                subtitle: 'Scan barcode',
-                color: const Color(0xFF06B6D4),
-                onTap: () => _showSnackBar('Food Scanner'),
+              child: MetricCard(
+                title: 'Variability',
+                value: '28',
+                unit: '% CV',
+                subtitle: 'Low variation',
+                icon: Icons.analytics_rounded,
+                accentColor: AppTheme.primaryBlue,
               ),
             ),
           ],
@@ -529,456 +544,171 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
+}
 
-  Widget _buildActionCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+class _QuickActionsSection extends StatelessWidget {
+  final Function(String, {bool isSuccess}) onShowSnackBar;
+
+  const _QuickActionsSection({required this.onShowSnackBar});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Quick Actions',
+        ),
+        const SizedBox(height: AppTheme.spacingS),
+        Row(
+          children: [
+            Expanded(
+              child: _ActionCard(
+                icon: Icons.qr_code_scanner_rounded,
+                title: 'Connect Sensor',
+                subtitle: 'Scan your device',
+                onTap: () => onShowSnackBar('Sensor scan coming soon!'),
+              ),
+            ),
+            const SizedBox(width: AppTheme.spacingM),
+            Expanded(
+              child: _ActionCard(
+                icon: Icons.camera_alt_rounded,
+                title: 'Food Scanner',
+                subtitle: 'Identify nutrition',
+                onTap: () => onShowSnackBar('Food scanner coming soon!'),
+              ),
             ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+class _ActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: BaseCard(
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(AppTheme.spacingL),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: AppTheme.primaryBlue.withOpacity(0.08),
+                borderRadius: AppTheme.radiusM,
               ),
               child: Icon(
                 icon,
-                color: color,
-                size: 24,
+                color: AppTheme.primaryBlue,
+                size: 28,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTheme.spacingL),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 16,
+              style: AppTheme.titleSmall.copyWith(
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1E293B),
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
+              style: AppTheme.bodySmall.copyWith(
+                color: AppTheme.textSecondary,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildRecentActivitySection() {
+// Recent Activity Section Widget
+class _RecentActivitySection extends StatelessWidget {
+  final Function(String, {bool isSuccess}) onShowSnackBar;
+
+  const _RecentActivitySection({required this.onShowSnackBar});
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Recent Activity',
-              style: TextStyle(
-                fontSize: 20,
+        SectionHeader(
+          title: 'Recent Activity',
+          action: TextButton.icon(
+            onPressed: () => onShowSnackBar('View all coming soon!'),
+            label: const Text('View All'),
+            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.primaryBlue,
+              textStyle: AppTheme.labelMedium.copyWith(
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1E293B),
-                letterSpacing: -0.3,
               ),
             ),
-            TextButton(
-              onPressed: () => _navigateToPage(1), // Navigate to Glucose page
-              child: const Text(
-                'View all',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF3B82F6),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
+        ),
+        const SizedBox(height: AppTheme.spacingS),
+        BaseCard(
+          padding: EdgeInsets.zero,
           child: Column(
             children: [
-              _buildActivityItem(
+              CustomListItem(
                 icon: Icons.bloodtype_rounded,
-                iconColor: const Color(0xFFEF4444),
+                iconColor: AppTheme.successGreen,
                 title: 'Glucose Reading',
                 subtitle: '126 mg/dL • 9:10 AM',
-                status: 'In Range',
-                statusColor: const Color(0xFF22C55E),
-                isFirst: true,
+                trailing: StatusBadge(
+                  label: 'In Range',
+                  color: AppTheme.successGreen,
+                ),
               ),
-              _buildActivityItem(
+              CustomListItem(
                 icon: Icons.restaurant_rounded,
-                iconColor: const Color(0xFFF59E0B),
+                iconColor: AppTheme.mealColor,
                 title: 'Breakfast Logged',
                 subtitle: 'Paratha & Egg • Carbs 45g',
-                status: 'Est. +22 mg/dL',
-                statusColor: const Color(0xFFF59E0B),
+                trailing: StatusBadge(
+                  label: 'Est. +22',
+                  color: AppTheme.warningOrange,
+                ),
               ),
-              _buildActivityItem(
+              CustomListItem(
                 icon: Icons.medication_rounded,
-                iconColor: const Color(0xFF3B82F6),
+                iconColor: AppTheme.primaryBlue,
                 title: 'Medication Reminder',
                 subtitle: 'Metformin 500mg at 9:00 AM',
-                status: 'Upcoming',
-                statusColor: const Color(0xFF3B82F6),
-                isLast: true,
+                trailing: StatusBadge(
+                  label: 'Upcoming',
+                  color: AppTheme.primaryBlue,
+                ),
+                showDivider: false,
               ),
             ],
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildActivityItem({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required String status,
-    required Color statusColor,
-    bool isFirst = false,
-    bool isLast = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        border: !isLast
-            ? Border(
-                bottom: BorderSide(
-                  color: const Color(0xFFE2E8F0),
-                  width: 1,
-                ),
-              )
-            : null,
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 11,
-                color: statusColor,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInsightsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Daily Insights',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1E293B),
-            letterSpacing: -0.3,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildInsightCard(
-                title: 'Time in Range',
-                value: '78%',
-                subtitle: 'Goal > 70%',
-                color: const Color(0xFF22C55E),
-                icon: Icons.trending_up_rounded,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildInsightCard(
-                title: 'Average',
-                value: '124',
-                subtitle: 'mg/dL today',
-                color: const Color(0xFF3B82F6),
-                icon: Icons.analytics_rounded,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAB308).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.lightbulb_rounded,
-                  color: Color(0xFFEAB308),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Night-time Pattern',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Consider a light snack before bed to avoid dips',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInsightCard({
-    required String title,
-    required String value,
-    required String subtitle,
-    required Color color,
-    required IconData icon,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              Icon(
-                icon,
-                color: color,
-                size: 20,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: color,
-              letterSpacing: -1,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF94A3B8),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomNavigationBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home_rounded, 'Home', 0),
-              _buildNavItem(Icons.show_chart_rounded, 'Glucose', 1),
-              _buildNavItem(Icons.qr_code_scanner_rounded, 'Scan', 2),
-              _buildNavItem(Icons.analytics_rounded, 'Insights', 3),
-              _buildNavItem(Icons.person_rounded, 'Profile', 4),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, int index) {
-    final isActive = _currentNavIndex == index;
-    return GestureDetector(
-      onTap: () => _navigateToPage(index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: isActive
-                  ? BoxDecoration(
-                      color: AppTheme.primaryBlue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    )
-                  : null,
-              child: Icon(
-                icon,
-                size: 24,
-                color: isActive
-                    ? AppTheme.primaryBlue
-                    : const Color(0xFF94A3B8),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: isActive
-                    ? AppTheme.primaryBlue
-                    : const Color(0xFF94A3B8),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
