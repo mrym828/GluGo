@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../utils/theme.dart';
 import '../widgets/shared_components.dart';
-import 'food_analysis.dart';
 
 class FoodScanPage extends StatefulWidget {
   const FoodScanPage({super.key});

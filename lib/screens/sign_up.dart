@@ -16,7 +16,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
   bool _agreeToTerms = false;
-  bool _subscribeToNewsletter = false;
   
   final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController();
