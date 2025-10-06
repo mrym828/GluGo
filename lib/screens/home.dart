@@ -85,6 +85,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+
   void _navigateToLogReading() async {
     HapticFeedback.lightImpact();
     try {
@@ -113,6 +114,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
+  void _navigateToLogMeal() {
+    HapticFeedback.lightImpact();
+    Navigator.pushNamed(context, '/scanner');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,7 +135,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               children: [
                 _WelcomeSection(),
                 const SizedBox(height: AppTheme.spacingXL),
-                _CurrentGlucoseSection(onLogReading: _navigateToLogReading),
+                _CurrentGlucoseSection(
+                  onLogReading: _navigateToLogReading,
+                  onLogMeal: _navigateToLogMeal,
+                  ),
                 const SizedBox(height: AppTheme.spacingXL),
                 _QuickStatsSection(),
                 const SizedBox(height: AppTheme.spacingXL),
@@ -244,8 +253,9 @@ class _WelcomeSection extends StatelessWidget {
 
 class _CurrentGlucoseSection extends StatelessWidget {
   final VoidCallback onLogReading;
+  final VoidCallback onLogMeal;
 
-  const _CurrentGlucoseSection({required this.onLogReading});
+  const _CurrentGlucoseSection({required this.onLogReading,  required this.onLogMeal});
 
   @override
   Widget build(BuildContext context) {
@@ -359,7 +369,7 @@ class _CurrentGlucoseSection extends StatelessWidget {
                 child: ActionButton(
                   label: 'Log Meal',
                   icon: Icons.restaurant_rounded,
-                  onPressed: () {},
+                  onPressed: onLogMeal,
                   isPrimary: false,
                   customColor: AppTheme.textSecondary,
                 ),
@@ -371,7 +381,6 @@ class _CurrentGlucoseSection extends StatelessWidget {
     );
   }
 }
-
 // Glucose Chart Widget
 class _GlucoseChart extends StatelessWidget {
   @override
